@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neonatal GI Diagnosis Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef3f4;
+    --surface: #ffffff;
+    --ink: #12292f;
+    --muted: #5b7076;
+    --line: #cfdcdf;
+    --accent: #0f7c86;
+    --accent-ink: #ffffff;
+    --track: #d6e4e6;
+    --alarm: #c2410c;
+    --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --body: "Instrument Sans", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1b1f;
+      --surface: #14262b;
+      --ink: #e6f1f2;
+      --muted: #8fa8ae;
+      --line: #264047;
+      --accent: #3fb8c4;
+      --accent-ink: #082126;
+      --track: #21393f;
+      --alarm: #fb923c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1b1f;
+    --surface: #14262b;
+    --ink: #e6f1f2;
+    --muted: #8fa8ae;
+    --line: #264047;
+    --accent: #3fb8c4;
+    --accent-ink: #082126;
+    --track: #21393f;
+    --alarm: #fb923c;
+    color-scheme: dark;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  #root {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    box-sizing: border-box;
+  }
+  .game {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 28px;
+  }
+  .meta {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .bar {
+    flex: 1;
+    height: 4px;
+    background: var(--track);
+    border-radius: 2px;
+    margin-right: 16px;
+    overflow: hidden;
+  }
+  .bar > span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+  .dial {
+    position: relative;
+    width: min(78vw, 300px);
+    aspect-ratio: 1;
+  }
+  .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .dial .track { stroke: var(--track); }
+  .dial .arc { stroke: var(--accent); transition: stroke 0.2s ease; }
+  .dial.done .arc { stroke: var(--alarm); }
+  .dial-inner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12%;
+    gap: 6px;
+  }
+  .time {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: clamp(40px, 12vw, 56px);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .done .time { color: var(--alarm); animation: pulse 0.9s ease-in-out infinite; }
+  .state { font-size: 14px; color: var(--muted); }
+  .dx {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(30px, 8vw, 44px);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0;
+    min-height: 2.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-wrap: balance;
+  }
+  .dx.placeholder { color: var(--muted); font-weight: 500; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  button {
+    font-family: var(--body);
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 13px 22px;
+    min-height: 48px;
+    cursor: pointer;
+    border: 1.5px solid var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  button.secondary { background: transparent; color: var(--ink); border-color: var(--line); }
+  button:hover { filter: brightness(1.06); }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  button.secondary:hover { border-color: var(--muted); filter: none; }
+  @keyframes pulse { 50% { opacity: 0.45; } }
+  @media (prefers-reduced-motion: reduce) {
+    .done .time { animation: none; }
+    .bar > span { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+(function () {
+  var h = React.createElement;
+  var useState = React.useState, useEffect = React.useEffect, useRef = React.useRef;
+
+  var DIAGNOSES = [
+    "Gastroesophageal reflux",
+    "Constipation",
+    "Necrotizing enterocolitis (NEC)",
+    "Spontaneous intestinal perforation (SIP)",
+    "Food protein-induced enterocolitis syndrome (FPIES)",
+    "Short bowel syndrome and intestinal failure",
+    "Esophageal atresia",
+    "Tracheoesophageal fistula",
+    "Duodenal atresia",
+    "Jejunoileal atresia",
+    "Malrotation",
+    "Volvulus",
+    "Meconium ileus",
+    "Small left colon syndrome",
+    "Hirschsprung disease",
+    "Imperforate anus",
+    "Gastroschisis",
+    "Omphalocele",
+    "Umbilical and inguinal hernias",
+    "Congenital diaphragmatic hernia",
+    "Pyloric stenosis",
+    "Gastric perforation"
+  ];
+
+  var DURATION_MS = 60000;
+  var RADIUS = 90;
+  var CIRC = 2 * Math.PI * RADIUS;
+
+  function formatTime(ms) {
+    var total = Math.ceil(ms / 1000);
+    var m = Math.floor(total / 60);
+    var s = total % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function App() {
+    var _used = useState([]), used = _used[0], setUsed = _used[1];
+    var _cur = useState(null), current = _cur[0], setCurrent = _cur[1];
+    var _status = useState("idle"), status = _status[0], setStatus = _status[1];
+    var _rem = useState(DURATION_MS), remaining = _rem[0], setRemaining = _rem[1];
+
+    var endRef = useRef(0);
+    var ctxRef = useRef(null);
+    var oscRef = useRef([]);
+
+    function ensureAudio() {
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!ctxRef.current) ctxRef.current = new AC();
+        if (ctxRef.current.state === "suspended") ctxRef.current.resume();
+      } catch (e) {}
+    }
+
+    function stopAlarm() {
+      oscRef.current.forEach(function (o) { try { o.stop(); } catch (e) {} });
+      oscRef.current = [];
+    }
+
+    function playAlarm() {
+      var ctx = ctxRef.current;
+      if (!ctx) return;
+      try {
+        var start = ctx.currentTime + 0.05;
+        for (var i = 0; i < 14; i++) {
+          var t = start + i * 0.5;
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.type = "square";
+          osc.frequency.value = i % 2 === 0 ? 880 : 660;
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.32);
+          oscRef.current.push(osc);
+        }
+      } catch (e) {}
+    }
+
+    useEffect(function () {
+      if (status !== "running") return;
+      var id = setInterval(function () {
+        var left = Math.max(0, endRef.current - Date.now());
+        setRemaining(left);
+        if (left <= 0) {
+          clearInterval(id);
+          setStatus("done");
+          playAlarm();
+        }
+      }, 200);
+      return function () { clearInterval(id); };
+    }, [status]);
+
+    useEffect(function () {
+      return function () { stopAlarm(); };
+    }, []);
+
+    function pick() {
+      ensureAudio();
+      stopAlarm();
+      var pool = DIAGNOSES.filter(function (d) { return used.indexOf(d) === -1; });
+      if (pool.length === 0) {
+        setCurrent(null);
+        setStatus("finished");
+        return;
+      }
+      var choice = pool[Math.floor(Math.random() * pool.length)];
+      setUsed(used.concat([choice]));
+      setCurrent(choice);
+      endRef.current = Date.now() + DURATION_MS;
+      setRemaining(DURATION_MS);
+      setStatus("running");
+    }
+
+    function ready() {
+      stopAlarm();
+      setCurrent(null);
+      setRemaining(DURATION_MS);
+      setStatus(used.length >= DIAGNOSES.length ? "finished" : "idle");
+    }
+
+    function pause() {
+      if (status !== "running") return;
+      setRemaining(Math.max(0, endRef.current - Date.now()));
+      setStatus("paused");
+    }
+
+    function resume() {
+      if (status !== "paused") return;
+      endRef.current = Date.now() + remaining;
+      setStatus("running");
+    }
+
+    function reset() {
+      stopAlarm();
+      setUsed([]);
+      setCurrent(null);
+      setRemaining(DURATION_MS);
+      setStatus("idle");
+    }
+
+    var total = DIAGNOSES.length;
+    var isDone = status === "done";
+    var isRunning = status === "running";
+    var isPaused = status === "paused";
+    var isFinished = status === "finished";
+    var allUsed = used.length >= total;
+
+    var fraction = isRunning || isPaused || isDone ? remaining / DURATION_MS : 1;
+    var offset = CIRC * (1 - fraction);
+
+    var stateText = isRunning ? "Time remaining" : isPaused ? "Paused" : isDone ? "Time\u2019s up" : isFinished ? "Game complete" : "Ready";
+
+    var heading;
+    if (isFinished) heading = h("p", { className: "dx" }, "All " + total + " diagnoses used");
+    else if (current) heading = h("p", { className: "dx", "aria-live": "polite" }, current);
+    else heading = h("p", { className: "dx placeholder" }, "Pick a diagnosis to begin");
+
+    var actions = [];
+    if (status === "idle") {
+      actions.push(h("button", { key: "go", onClick: pick }, "Pick a diagnosis"));
+    } else if (isRunning) {
+      actions.push(h("button", { key: "correct", onClick: ready }, "Got it"));
+      actions.push(h("button", { key: "pause", className: "secondary", onClick: pause }, "Pause timer"));
+    } else if (isPaused) {
+      actions.push(h("button", { key: "resume", onClick: resume }, "Resume timer"));
+      actions.push(h("button", { key: "correct", className: "secondary", onClick: ready }, "Got it"));
+    } else if (isDone) {
+      actions.push(h("button", { key: "next", onClick: ready }, allUsed ? "Finish game" : "Ready for next diagnosis"));
+    }
+    if (status !== "idle" || used.length > 0) {
+      actions.push(h("button", { key: "reset", className: isFinished ? "" : "secondary", onClick: reset }, "Reset game"));
+    }
+
+    return h("main", { className: "game" },
+      h("div", { className: "meta" },
+        h("div", { className: "bar", role: "presentation" },
+          h("span", { style: { width: (used.length / total * 100) + "%" } })
+        ),
+        h("span", null, used.length + " of " + total + " used")
+      ),
+      h("div", { className: "dial" + (isDone ? " done" : "") },
+        h("svg", { viewBox: "0 0 200 200", "aria-hidden": "true" },
+          h("circle", { className: "track", cx: 100, cy: 100, r: RADIUS, fill: "none", strokeWidth: 8 }),
+          h("circle", {
+            className: "arc", cx: 100, cy: 100, r: RADIUS, fill: "none", strokeWidth: 8,
+            strokeLinecap: "round", strokeDasharray: CIRC, strokeDashoffset: offset
+          })
+        ),
+        h("div", { className: "dial-inner" },
+          h("div", { className: "time", role: "timer" }, formatTime(isRunning || isPaused || isDone ? remaining : DURATION_MS)),
+          h("div", { className: "state" }, stateText)
+        )
+      ),
+      heading,
+      h("div", { className: "actions" }, actions)
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+})();
+</script>
+</body>
+</html>
